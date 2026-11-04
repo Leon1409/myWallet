@@ -1,0 +1,72 @@
+import { useEffect } from 'react';
+import { ymShift, ymLabel, ymNow } from '../utils/format.js';
+
+export function Modal({ title, onClose, children }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-head">
+          <h2>{title}</h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Zamknij">✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function Field({ label, children }) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      {children}
+    </div>
+  );
+}
+
+export function Spinner() {
+  return <div className="spinner" />;
+}
+
+export function Loading() {
+  return <div className="loading-row"><Spinner /></div>;
+}
+
+export function Empty({ emoji = '📭', title = 'Brak danych', hint }) {
+  return (
+    <div className="empty">
+      <div className="emoji">{emoji}</div>
+      <div style={{ fontWeight: 700 }}>{title}</div>
+      {hint && <div className="hint">{hint}</div>}
+    </div>
+  );
+}
+
+export function MonthNav({ ym, onYm, today }) {
+  const btn = 'btn btn-sm';
+  return (
+    <div className="month-nav">
+      <button className={btn} onClick={() => onYm(ymShift(ym, -1))} aria-label="Poprzedni miesiąc">◀</button>
+      <span className="month-label">{ymLabel(ym)}</span>
+      <button className={btn} onClick={() => onYm(ymShift(ym, 1))} aria-label="Następny miesiąc">▶</button>
+      {today && (
+        <button className={`${btn} btn-ghost`} onClick={() => onYm(ymNow())}>Dziś</button>
+      )}
+    </div>
+  );
+}
+
+export function ProgressBar({ percent, color }) {
+  const clamped = Math.max(0, Math.min(100, percent));
+  return (
+    <div className="progress">
+      <div style={{ width: `${clamped}%`, background: color }} />
+    </div>
+  );
+}

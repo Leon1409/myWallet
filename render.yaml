@@ -1,0 +1,22 @@
+# Wdrożenie na Render (plan free) — baza PostgreSQL zostaje na home.pl.
+# Pełna instrukcja: patrz notatki przy deployu w AGENTS.md / README.
+services:
+  - type: web
+    name: mywallet
+    runtime: node
+    plan: free
+    region: frankfurt # najbliżej bazy home.pl (Polska)
+    buildCommand: cd client && npm ci && npm run build && cd ../server && npm ci
+    startCommand: node server/src/index.js
+    envVars:
+      # Połączenie do bazy home.pl — wpisz w panelu Render (tajne):
+      # postgres://39582406_mywallet:HASLO@46.242.222.222:5432/39582406_mywallet
+      # (jeśli serwer wymaga TLS, doklej: ?sslmode=require)
+      - key: DATABASE_URL
+        sync: false
+      # Wygeneruje się raz przy pierwszym deployu; można też podać własny w panelu
+      - key: JWT_SECRET
+        generateValue: true
+      # Współdzielona baza home.pl — celowo mniejsza pula połączeń niż domyślna
+      - key: PG_POOL_MAX
+        value: "5"
