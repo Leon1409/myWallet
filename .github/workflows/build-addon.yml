@@ -9,6 +9,7 @@ on:
       - "server/src/**"
       - "server/package.json"
       - "addon/**"
+      - ".github/workflows/build-addon.yml"
   workflow_dispatch:
 
 permissions:
@@ -24,7 +25,7 @@ jobs:
       # GHCR wymaga nazw repozytorium małymi literami (Leon1409 -> leon1409)
       - name: Wersja addonu i właściciel (lowercase)
         run: |
-          echo "ADDON_VERSION=$(grep '^version:' addon/config.yaml | awk '{print $2}')" >> "$GITHUB_ENV"
+          echo "ADDON_VERSION=$(grep '^version:' addon/config.yaml | awk '{print $2}' | tr -d '\"')" >> "$GITHUB_ENV"
           echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
 
       - uses: docker/setup-qemu-action@v3
