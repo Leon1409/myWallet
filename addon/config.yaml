@@ -22,4 +22,4 @@ options:
 schema:
   database_url: str
   jwt_secret: str
-  pg_pool_max: int(1, 20)
+  pg_pool_max: int(1,20)
