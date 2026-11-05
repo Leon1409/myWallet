@@ -1,0 +1,49 @@
+# Buduje multi-arch obraz addonu HA (amd64/armv7/arm64) i publikuje do GHCR.
+# Uruchamia się przy zmianach w kodzie apki lub addonie + ręcznie (workflow_dispatch).
+name: Build addon
+on:
+  push:
+    branches: [main]
+    paths:
+      - "client/**"
+      - "server/src/**"
+      - "server/package.json"
+      - "addon/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR wymaga nazw repozytorium małymi literami (Leon1409 -> leon1409)
+      - name: Wersja addonu i właściciel (lowercase)
+        run: |
+          echo "ADDON_VERSION=$(grep '^version:' addon/config.yaml | awk '{print $2}')" >> "$GITHUB_ENV"
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: addon/Dockerfile
+          platforms: linux/amd64,linux/arm/v7,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/mywallet-addon:latest
+            ghcr.io/${{ env.OWNER_LC }}/mywallet-addon:${{ env.ADDON_VERSION }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

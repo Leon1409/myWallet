@@ -1,0 +1,23 @@
+name: MyWallet
+version: "1.0.0"
+slug: mywallet
+description: Budżet domowy — transakcje, budżety, kategorie, listy zakupów (baza PostgreSQL na home.pl)
+url: https://github.com/Leon1409/myWallet
+arch:
+  - aarch64
+  - armv7
+  - amd64
+startup: services
+boot: auto
+image: "ghcr.io/leon1409/mywallet-addon-{arch}"
+ports:
+  4000/tcp: 4000
+# Konfiguracja wpisywana w UI addonu; trafia do /data/options.json
+options:
+  database_url: ""
+  jwt_secret: ""
+  pg_pool_max: 5
+schema:
+  database_url: str
+  jwt_secret: str
+  pg_pool_max: int(1, 20)
