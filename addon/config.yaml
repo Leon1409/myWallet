@@ -9,7 +9,9 @@ arch:
   - amd64
 startup: services
 boot: auto
-image: "ghcr.io/leon1409/mywallet-addon-{arch}"
+init: false
+# Multi-arch manifest w GHCR (amd64/armv7/arm64) — bez przyrostka -{arch}
+image: "ghcr.io/leon1409/mywallet-addon"
 ports:
   4000/tcp: 4000
 # Konfiguracja wpisywana w UI addonu; trafia do /data/options.json
