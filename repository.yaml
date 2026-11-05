@@ -1,0 +1,4 @@
+# Wymagany przez Supervisora — bez tego pliku repozytorium addonów się nie ładuje
+name: "MyWallet"
+url: "https://github.com/Leon1409/myWallet"
+maintainer: "Leon"
