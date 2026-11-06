@@ -1,5 +1,5 @@
 name: MyWallet
-version: "1.0.1"
+version: "1.0.3"
 slug: mywallet
 description: Budżet domowy — transakcje, budżety, kategorie, listy zakupów (baza PostgreSQL na home.pl)
 url: https://github.com/Leon1409/myWallet
@@ -19,7 +19,13 @@ options:
   database_url: ""
   jwt_secret: ""
   pg_pool_max: 5
+  ai_api_key: ""
+  ai_base_url: "https://opencode.ai/inference/go"
+  ai_model: "glm-5.3-flash"
 schema:
   database_url: str
   jwt_secret: str
   pg_pool_max: int(1,20)
+  ai_api_key: password
+  ai_base_url: str
+  ai_model: str

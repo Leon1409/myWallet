@@ -123,6 +123,225 @@ function TxModal({ title, categories, initial, onClose, onSaved }) {
   );
 }
 
+// Zmniejsza zdjęcie przed wysłaniem (paragony z telefonu potrafią ważyć kilka MB;
+// 1600px JPEG wystarcza AI do odczytu, a upload leci szybciej)
+async function shrinkImage(file, maxDim = 1600) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+  return new File([blob], 'receipt.jpg', { type: 'image/jpeg' });
+}
+
+// Import transakcji ze zdjęcia paragonu: upload -> AI czyta pozycje ->
+// podgląd i korekta -> jedna zbiorcza transakcja wydatku z podpiętym zdjęciem
+function ReceiptModal({ categories, onClose, onSaved }) {
+  const [stage, setStage] = useState('pick'); // pick -> parsing -> review
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [receipt, setReceipt] = useState(null);
+  const [form, setForm] = useState({ amount: '', date: todayIso(), categoryId: '', description: '' });
+  const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  async function onPick(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setError('');
+    setBusy(true);
+    setStage('parsing');
+    try {
+      const small = await shrinkImage(file);
+      setPreviewUrl(URL.createObjectURL(small));
+      const fd = new FormData();
+      fd.append('image', small, 'receipt.jpg');
+      const res = await api.post('/receipts', fd);
+      const r = res.data;
+      setReceipt(r);
+      setForm({
+        amount: r.total ? String(r.total) : '',
+        date: r.date || todayIso(),
+        categoryId: r.categoryId != null ? String(r.categoryId) : '',
+        description: r.store || 'Zakupy',
+      });
+      setStage('review');
+    } catch (err) {
+      setError(errMsg(err));
+      setStage('pick');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSave() {
+    setError('');
+    setBusy(true);
+    try {
+      const res = await api.post('/transactions', {
+        type: 'expense',
+        amount: form.amount,
+        date: form.date,
+        categoryId: form.categoryId ? Number(form.categoryId) : null,
+        description: form.description || null,
+        receiptId: receipt.receiptId,
+      });
+      onSaved(res.data);
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const expenseCats = categories.filter((c) => c.type === 'expense');
+
+  return (
+    <Modal title="Dodaj z paragonu" onClose={onClose}>
+      {stage === 'pick' && (
+        <div>
+          <p style={{ color: 'var(--muted)', fontSize: 14, margin: '0 0 12px' }}>
+            Zrób lub wybierz zdjęcie paragonu — AI odczyta sklep, datę, sumę i zaproponuje
+            kategorię, a Ty tylko zatwierdzisz.
+          </p>
+          <label className="btn btn-primary" style={{ display: 'inline-flex', cursor: 'pointer' }}>
+            📷 Wybierz zdjęcie paragonu
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={onPick}
+            />
+          </label>
+        </div>
+      )}
+
+      {stage === 'parsing' && (
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ fontSize: 40 }}>🧾</div>
+          <p style={{ fontWeight: 600 }}>AI czyta paragon…</p>
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>zwykle 5–20 sekund</p>
+        </div>
+      )}
+
+      {stage === 'review' && receipt && (
+        <div>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 14, alignItems: 'flex-start' }}>
+            {previewUrl && (
+              <img
+                src={previewUrl}
+                alt="paragon"
+                style={{ width: 110, height: 110, objectFit: 'cover', borderRadius: 10 }}
+              />
+            )}
+            <div style={{ fontSize: 13, color: 'var(--muted)', flex: 1 }}>
+              {receipt.store && <div>Sklep: <b style={{ color: 'var(--text)' }}>{receipt.store}</b></div>}
+              {receipt.date && (
+                <div>
+                  Data z paragonu: {receipt.date}
+                  {receipt.date !== todayIso() && (
+                    <span style={{ color: 'var(--amber, #d97706)', fontWeight: 700 }}>
+                      {' '}— inna niż dziś (transakcja trafi do tego miesiąca)
+                    </span>
+                  )}
+                </div>
+              )}
+              {receipt.total != null && <div>Suma odczytana: {formatPLN(receipt.total)}</div>}
+              {!receipt.total && (
+                <div className="error-text">Nie odczytano sumy — wpisz kwotę ręcznie poniżej</div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-row">
+            <Field label="Kwota (zł)">
+              <input
+                className="input" required inputMode="decimal" placeholder="0,00"
+                value={form.amount}
+                onChange={(e) => set({ amount: e.target.value })}
+              />
+            </Field>
+            <Field label="Data">
+              <input
+                className="input" type="date" required
+                value={form.date}
+                onChange={(e) => set({ date: e.target.value })}
+              />
+            </Field>
+          </div>
+
+          <Field label="Kategoria">
+            <select
+              className="select"
+              required
+              value={form.categoryId}
+              onChange={(e) => set({ categoryId: e.target.value })}
+            >
+              <option value="">— wybierz kategorię —</option>
+              {expenseCats.map((c) => (
+                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Opis">
+            <input
+              className="input" maxLength={200}
+              value={form.description || ''}
+              onChange={(e) => set({ description: e.target.value })}
+            />
+          </Field>
+
+          {error && <p className="error-text">{error}</p>}
+          <div className="form-actions">
+            <button type="button" className="btn" onClick={onClose}>Anuluj</button>
+            <button className="btn btn-primary" disabled={busy || !form.amount || !form.categoryId} onClick={onSave}>
+              {busy ? 'Zapisywanie…' : 'Zapisz transakcję'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {stage === 'pick' && error && <p className="error-text" style={{ marginTop: 10 }}>{error}</p>}
+    </Modal>
+  );
+}
+
+// Podgląd zapisanego zdjęcia paragonu (pobierany blob-em z auth)
+function ReceiptPreviewModal({ tx, onClose }) {
+  const [url, setUrl] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let objectUrl;
+    api
+      .get(`/receipts/${tx.receipt_id}/image`, { responseType: 'blob' })
+      .then((res) => {
+        objectUrl = URL.createObjectURL(res.data);
+        setUrl(objectUrl);
+      })
+      .catch(() => setError('Nie udało się pobrać zdjęcia paragonu'));
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [tx.receipt_id]);
+
+  return (
+    <Modal title={`Paragon — ${tx.description || 'zakupy'}`} onClose={onClose}>
+      {error && <p className="error-text">{error}</p>}
+      {!url && !error && <Loading />}
+      {url && (
+        <img src={url} alt="paragon" style={{ width: '100%', borderRadius: 10 }} />
+      )}
+    </Modal>
+  );
+}
+
 export default function Transactions() {
   const [ym, setYm] = useState(ymNow());
   const [filters, setFilters] = useState({ categoryId: '', type: '', search: '' });
@@ -131,6 +350,8 @@ export default function Transactions() {
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null); // { title, initial }
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [previewTx, setPreviewTx] = useState(null);
 
   useEffect(() => {
     api.get('/categories').then((r) => setCategories(r.data.items)).catch(() => {});
@@ -195,6 +416,7 @@ export default function Transactions() {
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button className="btn" onClick={onExport}>⬇ Eksport CSV</button>
+          <button className="btn" onClick={() => setReceiptOpen(true)}>📷 Z paragonu</button>
           <button
             className="btn btn-primary"
             onClick={() => setModal({ title: 'Nowa transakcja', initial: emptyForm() })}
@@ -288,6 +510,14 @@ export default function Transactions() {
                       </td>
                       <td>
                         <div className="row-actions">
+                          {t.receipt_id && (
+                            <button
+                              className="btn btn-ghost btn-icon" title="Zdjęcie paragonu"
+                              onClick={() => setPreviewTx(t)}
+                            >
+                              🧾
+                            </button>
+                          )}
                           <button
                             className="btn btn-ghost btn-icon" title="Edytuj"
                             onClick={() =>
@@ -348,6 +578,22 @@ export default function Transactions() {
           }}
         />
       )}
+
+      {receiptOpen && (
+        <ReceiptModal
+          categories={categories}
+          onClose={() => setReceiptOpen(false)}
+          onSaved={(tx) => {
+            setReceiptOpen(false);
+            // Przeskocz na miesiąc zapisanej transakcji — inaczej wpis z
+            // paragonu o starej dacie "znika" z widoku (lista filtruje miesiąc)
+            if (tx?.date) setYm(tx.date.slice(0, 7));
+            setPage(1);
+          }}
+        />
+      )}
+
+      {previewTx && <ReceiptPreviewModal tx={previewTx} onClose={() => setPreviewTx(null)} />}
     </>
   );
 }

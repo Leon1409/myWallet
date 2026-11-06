@@ -115,6 +115,27 @@ function HouseholdCard({ hh, currentId, switchTo, onChanged, onGone }) {
     }
   }
 
+  // Ustaw/ściągnij domyślny budżet (per konto — działa na każdym urządzeniu po zalogowaniu)
+  async function setDefault() {
+    setError('');
+    try {
+      await api.put(`/households/${hh.id}/default`);
+      await onChanged();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
+  async function unsetDefault() {
+    setError('');
+    try {
+      await api.delete(`/households/${hh.id}/default`);
+      await onChanged();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
   async function remove() {
     if (
       !window.confirm(
@@ -137,6 +158,15 @@ function HouseholdCard({ hh, currentId, switchTo, onChanged, onGone }) {
       <div className="card-title">
         <span>🏠 {hh.name}</span>
         <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {hh.is_default && (
+            <span
+              className="badge"
+              style={{ background: 'var(--green-soft, rgba(16,185,129,.14))', color: 'var(--green)' }}
+              title="Budżet startuje automatycznie po zalogowaniu"
+            >
+              ★ Domyślny
+            </span>
+          )}
           <span className="badge badge-muted">
             {hh.role === 'owner' ? 'Właściciel' : 'Członek'} · {hh.member_count} os.
           </span>
@@ -241,6 +271,25 @@ function HouseholdCard({ hh, currentId, switchTo, onChanged, onGone }) {
               {hh.role !== 'owner' && (
                 <button className="btn btn-sm" onClick={leave}>
                   ⎋ Opuść budżet
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {hh.is_default ? (
+                <button
+                  className="btn btn-sm btn-ghost"
+                  onClick={unsetDefault}
+                  title="Domyślny budżet wróci na osobisty"
+                >
+                  ★ Domyślny — przestań
+                </button>
+              ) : (
+                <button
+                  className="btn btn-sm"
+                  onClick={setDefault}
+                  title="Ten budżet będzie się sam włączać po zalogowaniu (na każdym urządzeniu)"
+                >
+                  ★ Ustaw jako domyślny
                 </button>
               )}
             </div>

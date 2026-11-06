@@ -9,7 +9,7 @@ router.use(requireAuth);
 
 // Wspólny SELECT z nazwami kategorii
 const SELECT = `
-  SELECT t.id, t.type, t.amount, t.date, t.description,
+  SELECT t.id, t.type, t.amount, t.date, t.description, t.receipt_id,
          c.id AS category_id, c.name AS category_name, c.color AS category_color,
          c.icon AS category_icon
   FROM transactions t
@@ -92,6 +92,19 @@ async function validateCategory(userId, categoryId, type) {
   return categoryId;
 }
 
+// Walidacja paragonu do podpięcia: musi należeć do budżetu i nie być już użyty
+async function validateReceipt(userId, receiptId) {
+  const rid = toId(receiptId, 'Identyfikator paragonu');
+  const rc = await db.query('SELECT id FROM receipts WHERE id = $1 AND user_id = $2', [
+    rid,
+    userId,
+  ]);
+  if (!rc.rows[0]) throw httpError(400, 'Paragon nie istnieje');
+  const used = await db.query('SELECT 1 FROM transactions WHERE receipt_id = $1', [rid]);
+  if (used.rows[0]) throw httpError(409, 'Ten paragon jest już powiązany z transakcją');
+  return rid;
+}
+
 router.post(
   '/',
   asyncHandler(async (req, res) => {
@@ -106,11 +119,15 @@ router.post(
       req.body.categoryId != null && req.body.categoryId !== ''
         ? await validateCategory(req.owner.id, toId(req.body.categoryId, 'Identyfikator kategorii'), type)
         : null;
+    const receiptId =
+      req.body.receiptId != null && req.body.receiptId !== ''
+        ? await validateReceipt(req.owner.id, req.body.receiptId)
+        : null;
 
     const r = await db.query(
-      `INSERT INTO transactions (user_id, category_id, type, amount, date, description)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [req.owner.id, categoryId, type, amount, date, description]
+      `INSERT INTO transactions (user_id, category_id, type, amount, date, description, receipt_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [req.owner.id, categoryId, type, amount, date, description, receiptId]
     );
     res.status(201).json(await getTransaction(req.owner.id, r.rows[0].id));
   })

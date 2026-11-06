@@ -2,6 +2,7 @@ import 'dotenv/config';
 import app from './app.js';
 import { ensureSchema } from './schema.js';
 import { processRecurring } from './services/recurring.js';
+import { cleanupOrphanReceipts } from './services/receipts.js';
 
 if (!process.env.DATABASE_URL) {
   console.error('❌  Brak DATABASE_URL — utworz plik server/.env na podstawie .env.example');
@@ -25,16 +26,28 @@ async function main() {
     console.error('Błąd przetwarzania transakcji cyklicznych:', err.message);
   }
 
+  try {
+    const n = await cleanupOrphanReceipts();
+    if (n > 0) console.log(`🧹  Usunięto ${n} porzuconych paragonów`);
+  } catch (err) {
+    console.error('Błąd sprzątania paragonów:', err.message);
+  }
+
   app.listen(PORT, () => {
     console.log(`🚀  API: http://localhost:${PORT}`);
   });
 
-  // Zegar cyklicznych — co godzinę
+  // Zegar cyklicznych — co godzinę (razem z nim sprzątanie porzuconych paragonów)
   setInterval(async () => {
     try {
       await processRecurring();
     } catch (err) {
       console.error('Błąd zegara cyklicznych:', err.message);
+    }
+    try {
+      await cleanupOrphanReceipts();
+    } catch (err) {
+      console.error('Błąd sprzątania paragonów:', err.message);
     }
   }, 60 * 60 * 1000);
 }

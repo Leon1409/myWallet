@@ -13,6 +13,7 @@ import recurringRoutes from './routes/recurring.js';
 import statsRoutes from './routes/stats.js';
 import householdsRoutes from './routes/households.js';
 import shoppingRoutes from './routes/shopping.js';
+import receiptsRoutes from './routes/receipts.js';
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/recurring', recurringRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/households', householdsRoutes);
 app.use('/api/shopping-lists', shoppingRoutes);
+app.use('/api/receipts', receiptsRoutes);
 
 const clientDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../client/dist');
 

@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS household_members (
   household_id BIGINT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   user_id      BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role         TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'member')),
+  is_default   BOOLEAN NOT NULL DEFAULT false,
   joined_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (household_id, user_id)
 );
@@ -108,12 +109,30 @@ CREATE TABLE IF NOT EXISTS shopping_list_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Zdjęcia paragonów (sparsowane przez AI, podpięte do transakcji zbiorczej).
+-- Bez transaction_id do czasu zatwierdzenia importu — sieroty (porzucone
+-- parsowanie / transakcja usunięta) sprząta zegar po dobie.
+CREATE TABLE IF NOT EXISTS receipts (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  image      BYTEA NOT NULL,
+  mime       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Doposażenie istniejących instalacji (idempotentne; PG 9.6+)
+ALTER TABLE household_members ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS receipt_id BIGINT REFERENCES receipts(id) ON DELETE SET NULL;
+
 CREATE INDEX IF NOT EXISTS idx_categories_user   ON categories (user_id);
 CREATE INDEX IF NOT EXISTS idx_tx_user_date      ON transactions (user_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_tx_category       ON transactions (category_id);
+CREATE INDEX IF NOT EXISTS idx_tx_receipt        ON transactions (receipt_id);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_month ON budgets (user_id, month);
 CREATE INDEX IF NOT EXISTS idx_recurring_active  ON recurring (next_date) WHERE active = true;
 CREATE INDEX IF NOT EXISTS idx_hh_members_user   ON household_members (user_id);
+-- Jeden domyślny budżet domowy na użytkownika (partial unique — jak filtered index w T-SQL)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_hh_members_default ON household_members (user_id) WHERE is_default;
 CREATE INDEX IF NOT EXISTS idx_hh_invites_email  ON household_invites (email) WHERE status = 'pending';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_hh_invites_pending
   ON household_invites (household_id, email) WHERE status = 'pending';

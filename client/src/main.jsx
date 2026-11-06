@@ -17,3 +17,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// PWA — rejestracja service workera (tylko secure context: https/localhost;
+// na LAN po http się nie odpali i nie szkodzi)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}

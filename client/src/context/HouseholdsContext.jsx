@@ -14,12 +14,30 @@ export function HouseholdsProvider({ children }) {
     if (!localStorage.getItem('token')) return;
     try {
       const res = await api.get('/households');
-      setHouseholds(res.data.items);
+      const items = res.data.items;
+      setHouseholds(items);
       setInvites(res.data.invites);
+
       const savedId = localStorage.getItem('householdId');
-      if (savedId && !res.data.items.some((h) => String(h.id) === savedId)) {
-        localStorage.removeItem('householdId');
+      if (savedId === 'personal') {
+        // Jawnie wybrany budżet osobisty — nie ruszaj (domyślny dom go nie nadpisze)
         setCurrentId(null);
+      } else if (savedId) {
+        if (!items.some((h) => String(h.id) === savedId)) {
+          // Członkostwo wygasło — wróć do reguł domyślnych
+          localStorage.removeItem('householdId');
+          setCurrentId(null);
+        }
+      } else {
+        // Brak jawnego wyboru (nowe urządzenie / po zalogowaniu) — startuj
+        // od domyślnego budżetu ustawionego na koncie, jeśli taki jest
+        const def = items.find((h) => h.is_default);
+        if (def) {
+          localStorage.setItem('householdId', String(def.id));
+          setCurrentId(String(def.id));
+        } else {
+          setCurrentId(null);
+        }
       }
     } catch {
       /* niedostępne — zostaw puste */
@@ -28,7 +46,10 @@ export function HouseholdsProvider({ children }) {
 
   useEffect(() => {
     if (user) refresh();
-    else {
+    // Czyszczenie tylko przy braku sesji (wylogowanie) — NIE przy user=null
+    // na starcie, gdy /auth/me jeszcze leci (gubiłoby householdId zapisany
+    // przez switchTo przed reloadem i selekt wracał na "Mój budżet").
+    else if (!localStorage.getItem('token')) {
       localStorage.removeItem('householdId');
       setHouseholds([]);
       setInvites([]);
@@ -38,9 +59,12 @@ export function HouseholdsProvider({ children }) {
 
   const current = households.find((h) => String(h.id) === currentId) || null;
 
-  // Przełączenie kontekstu odświeża całą aplikację (dane są pobierane per budżet)
+  // Przełączenie kontekstu odświeża całą aplikację (dane są pobierane per budżet).
+  // null/'' zapisuje się jako 'personal' — to ŚWIADOMY wybór osobistego, którego
+  // domyślny budżet z konta nie może nadpisać (od 'braku wyboru' różni się tym,
+  // że po odświeżeniu nie wrócimy na dom domyślny).
   function switchTo(householdId) {
-    if (householdId == null || householdId === '') localStorage.removeItem('householdId');
+    if (householdId == null || householdId === '') localStorage.setItem('householdId', 'personal');
     else localStorage.setItem('householdId', String(householdId));
     window.location.reload();
   }

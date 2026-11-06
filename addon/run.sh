@@ -6,6 +6,9 @@ set -e
 OPTS=/data/options.json
 export DATABASE_URL="$(jq -r '.database_url // empty' "$OPTS")"
 export PG_POOL_MAX="$(jq -r '.pg_pool_max // 5' "$OPTS")"
+export AI_API_KEY="$(jq -r '.ai_api_key // empty' "$OPTS")"
+export AI_BASE_URL="$(jq -r '.ai_base_url // empty' "$OPTS")"
+export AI_MODEL="$(jq -r '.ai_model // empty' "$OPTS")"
 export PORT=4000
 
 # JWT_SECRET: jeśli pusty w opcjach — wygeneruj raz i zapisz w /data

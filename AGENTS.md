@@ -28,14 +28,18 @@ Osobista aplikacja do zarządzania budżetem domowym (portfel). Właściciel: Ł
 - Komunikacja po polsku.
 - Nie zakładać znajomości konwencji ekosystemu JS/Node.
 
-## Deployment (stan: nie rozstrzygnięty)
-- Owner ma hosting **home.pl** — brak Node na hostingu współdzielonym; home.pl tylko domena/DNS/mail.
-- Rozważane opcje: **Render + Neon** (najszybciej), **Fly.io** (tanio), **VPS Hetzner + Caddy** (pełna kontrola; owner techniczny — ta opcja rekomendowana do nauki).
-- Do ogarnięcia przy wdrożeniu: serwowanie builda Vite przez `express.static` z serwera, sekrety przez env (`DATABASE_URL`, JWT secret), backupy (pg_dump cron / wbudowane w Neon).
-- Zaoferowane: przygotuję pliki wdrożeniowe (Dockerfile + Caddyfile lub render.yaml) po decyzji.
+## Deployment (stan: wdrożone, działa od 06.11.2026)
+- **Home Assistant addon** (`addon/`) — obraz multi-arch z GHCR (`ghcr.io/leon1409/mywallet-addon`), build w GitHub Actions przy pushu na main. Aktualizacja w HA: odświeżenie repozytorium addonów → update (wymaga podbicia `version` w `addon/config.yaml`).
+- **DB**: PostgreSQL home.pl (`serwer2508931.home.pl`, baza/konto `39582406_mywallet`) — connection string w `server/.env` i w opcjach addonu. Baza akceptuje połączenia bez SSL.
+- **Dostęp z internetu**: `https://wallet.lukleo.pl` przez **Cloudflare Tunnel** (dodatek cloudflared w HA, tunel lokalnie zarządzany z opcji dodatku). DNS: CNAME `wallet` → `<id-tunelu>.cfargotunnel.com`, proxied. `lukleo.pl` (root) → HA.
+- W tunelu serwis addonu **musi** być `http://172.30.32.1:4000` (host HAOS z perspektywy kontenerów); `localhost` nie działa (kontener cloudflared ≠ host). Przy kolejnych serwisach w HA używać tego wzorca.
+- LAN: `http://192.168.1.136:4000` (plain HTTP, bez TLS).
+- `helmet` ma wyłączone `upgrade-insecure-requests` w CSP (łamało assety na plain HTTP — ERR_CONNECTION_RESET/ERR_SSL_PROTOCOL_ERROR). Nie włączać z powrotem przy serwowaniu z portu bez TLS.
+- Reset hasła właściciela: `server/scripts/reset-password.mjs` z katalogu `server/` (czyta `.env`).
+- Odrzucone warianty: Render + Neon, Fly.io, VPS Hetzner (Home Assistant + tunel załatwia wszystko bez dodatkowego hostingu).
 
 ## Otwarte tematy / następne kroki
-1. Wybór opcji deploymentu → przygotowanie configów.
+1. Backupy bazy produkcyjnej (pg_dump na home.pl — obecnie brak).
 2. Przejście na migracje gdy przyjdzie czas (patrz wyżej).
 3. Ewentualne zmiany schematu na życzenie właściciela (przez schema.js).
 

@@ -41,7 +41,7 @@ router.get(
     const me = await currentUser(req);
     const [items, invites] = await Promise.all([
       db.query(
-        `SELECT h.id, h.name, m.role, h.created_at,
+        `SELECT h.id, h.name, m.role, m.is_default, h.created_at,
                 (SELECT COUNT(*)::int FROM household_members mm WHERE mm.household_id = h.id) AS member_count
          FROM household_members m
          JOIN households h ON h.id = m.household_id
@@ -166,6 +166,40 @@ router.get(
       invites = inv.rows;
     }
     res.json({ id: hh.id, name: hh.name, role: hh.role, members: members.rows, invites });
+  })
+);
+
+// PUT /api/households/:id/default — ustaw dom jako mój domyślny budżet (dowolny członek)
+router.put(
+  '/:id/default',
+  asyncHandler(async (req, res) => {
+    const id = toId(req.params.id, 'Identyfikator budżetu domowego');
+    await requireMembership(req, id);
+    await withClient(async (client) => {
+      // Najpierw zdejmij dotychczasowy domyślny (partial unique na user_id WHERE is_default)
+      await client.query('UPDATE household_members SET is_default = false WHERE user_id = $1 AND is_default', [
+        req.user.id,
+      ]);
+      await client.query(
+        'UPDATE household_members SET is_default = true WHERE household_id = $1 AND user_id = $2',
+        [id, req.user.id]
+      );
+    });
+    res.json({ ok: true });
+  })
+);
+
+// DELETE /api/households/:id/default — przestań używać tego domu jako domyślnego (wroć do osobistego)
+router.delete(
+  '/:id/default',
+  asyncHandler(async (req, res) => {
+    const id = toId(req.params.id, 'Identyfikator budżetu domowego');
+    await requireMembership(req, id);
+    await db.query(
+      'UPDATE household_members SET is_default = false WHERE household_id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    res.json({ ok: true });
   })
 );
 
