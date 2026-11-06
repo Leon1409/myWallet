@@ -16,7 +16,20 @@ import shoppingRoutes from './routes/shopping.js';
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        // Wyłączone upgrade-insecure-requests: wymuszałoby HTTPS także przy
+        // serwowaniu po czystym HTTP (addon HA na porcie 4000) i łamało ładowanie
+        // assetów (ERR_CONNECTION_RESET / ERR_SSL_PROTOCOL_ERROR). Assety są ładowane
+        // relative ('self'), więc dyrektywa nie jest potrzebna nawet za HTTPS.
+        upgradeInsecureRequests: null,
+      },
+    },
+  })
+);
 app.use(
   cors({
     origin: process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(',') : true,
