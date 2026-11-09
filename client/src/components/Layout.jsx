@@ -1,7 +1,58 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useHouseholds } from '../context/HouseholdsContext.jsx';
+import { api } from '../api/client.js';
+
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || 'dev';
+// Publiczny, stały URL — najnowszy release (workflow APK publikuje tam MyWallet.apk)
+const APK_URL = 'https://github.com/Leon1409/myWallet/releases/latest/download/MyWallet.apk';
+
+// Baner aktualizacji: serwer zna swoją wersję (z addon/config.yaml), apka swoją
+// (VITE_APP_VERSION wstrzyknięty przy buildzie APK). Różnica -> zaproś do pobrania.
+function UpdateBanner() {
+  const [update, setUpdate] = useState(null);
+
+  useEffect(() => {
+    if (APP_VERSION === 'dev') return;
+    api
+      .get('/version')
+      .then((r) => {
+        if (r.data?.version && r.data.version !== APP_VERSION) {
+          setUpdate(r.data.version);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!update) return null;
+  return (
+    <div
+      style={{
+        background: 'var(--green-soft, rgba(16,185,129,.14))',
+        color: 'var(--green)',
+        fontSize: 13,
+        fontWeight: 700,
+        padding: '8px 14px',
+        display: 'flex',
+        gap: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      🎉 Dostępna aktualizacja ({update})
+      <a
+        href={APK_URL}
+        className="btn btn-sm btn-primary"
+        download
+        style={{ textDecoration: 'none' }}
+      >
+        Pobierz
+      </a>
+    </div>
+  );
+}
 
 const NAV = [
   { to: '/', label: 'Pulpit', icon: '📊', end: true },
@@ -74,6 +125,7 @@ export default function Layout() {
         </div>
       </aside>
       <div className="main">
+        <UpdateBanner />
         <div className="topbar">
           <button className="hamburger" onClick={() => setOpen((v) => !v)} aria-label="Menu">
             ☰

@@ -1,6 +1,7 @@
 # Buduje APK (debug, sideload — bez sklepu) z builda Vite opakowanego w
 # Capacitor. Uruchamia się przy zmianach apki/klienta + ręcznie (workflow_dispatch).
-# Wynik: artifact "mywallet-apk" do pobrania z podsumowania runa.
+# Wynik: GitHub Release z MyWallet.apk (publiczny URL dla banera aktualizacji
+# w apce: releases/latest/download/MyWallet.apk) + artifact dla wygody.
 name: Build APK
 
 on:
@@ -12,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # publikacja release z APK
 
 jobs:
   apk:
@@ -29,11 +30,18 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
 
+      # Wersja addonu = źródło prawdy (serwer ją zgłasza przez /api/version,
+      # apka porównuje i pokazuje baner aktualizacji)
+      - name: Wersja aplikacji
+        run: |
+          VER=$(grep '^version:' ../addon/config.yaml | awk '{print $2}' | tr -d '"')
+          echo "APP_VERSION=$VER" >> "$GITHUB_ENV"
+
       # Natywna apka nie ma serwera lokalnego — API przez tunel/domenę
-      - name: Build web (Vite, absolutny URL API)
+      - name: Build web (Vite, absolutny URL API + wersja)
         run: |
           npm ci
-          VITE_API_URL=https://wallet.lukleo.pl/api npm run build
+          VITE_API_URL=https://wallet.lukleo.pl/api VITE_APP_VERSION=$APP_VERSION npm run build
 
       - name: Sync Capacitor (skopiuj dist do projektu Android)
         run: npx cap sync android
@@ -54,6 +62,15 @@ jobs:
 
       - name: Zmień nazwę APK
         run: mv android/app/build/outputs/apk/debug/app-debug.apk MyWallet.apk
+
+      # Publiczny release — stały URL "latest" dla banera aktualizacji w apce
+      - name: Publikuj release z APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v${{ env.APP_VERSION }}-${{ github.sha }}
+          name: MyWallet ${{ env.APP_VERSION }} (APK)
+          body: Sideload APK — instalacja ręczna (bez sklepu). Build z ${{ github.sha }}.
+          files: client/MyWallet.apk
 
       - uses: actions/upload-artifact@v4
         with:

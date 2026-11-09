@@ -14,6 +14,7 @@ import statsRoutes from './routes/stats.js';
 import householdsRoutes from './routes/households.js';
 import shoppingRoutes from './routes/shopping.js';
 import receiptsRoutes from './routes/receipts.js';
+import { appVersion } from './version.js';
 
 const app = express();
 
@@ -38,6 +39,10 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Wersja aplikacji (publicznie — z addon/config.yaml w obrazie; 'dev' lokalnie).
+// Klient porównuje z wersją zbudowaną w APK/PWA i pokazuje baner aktualizacji.
+app.get('/api/version', (req, res) => res.json({ version: appVersion() }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);

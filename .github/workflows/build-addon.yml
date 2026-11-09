@@ -43,6 +43,8 @@ jobs:
           file: addon/Dockerfile
           platforms: linux/amd64,linux/arm/v7,linux/arm64
           push: true
+          # Wersja do weba w obrazie (baner aktualizacji APK porównuje z /api/version)
+          build-args: APP_VERSION=${{ env.ADDON_VERSION }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/mywallet-addon:latest
             ghcr.io/${{ env.OWNER_LC }}/mywallet-addon:${{ env.ADDON_VERSION }}

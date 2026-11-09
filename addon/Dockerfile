@@ -2,13 +2,15 @@
 # architektury, więc nie trzeba emulować ARM przy kompilacji (QEMU tylko dla
 # finalnego etapu, który jest lekkim node:alpine + pliki JS).
 FROM --platform=$BUILDPLATFORM node:20-alpine AS build
+ARG APP_VERSION
 WORKDIR /repo
 
 # Najpierw manifesty (warstwy zależności cache'ują się w buildx)
 COPY client/package.json client/package-lock.json client/
 RUN cd client && npm ci
 COPY client/ client/
-RUN cd client && npm run build
+# VITE_APP_VERSION -> baner aktualizacji w apce (porównywany z /api/version)
+RUN cd client && VITE_APP_VERSION=$APP_VERSION npm run build
 
 COPY server/package.json server/package-lock.json server/
 RUN cd server && npm ci --omit=dev
@@ -21,6 +23,8 @@ RUN apk add --no-cache jq bash
 WORKDIR /app
 COPY --from=build /repo/client/dist /app/client/dist
 COPY --from=build /repo/server /app/server
+# Wersja addonu — źródło prawdy dla GET /api/version (baner aktualizacji APK)
+COPY addon/config.yaml /app/addon-config.yaml
 COPY addon/run.sh /app/run.sh
 RUN chmod +x /app/run.sh
 WORKDIR /app/server

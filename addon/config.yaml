@@ -1,5 +1,5 @@
 name: MyWallet
-version: "1.0.4"
+version: "1.0.5"
 slug: mywallet
 description: Budżet domowy — transakcje, budżety, kategorie, listy zakupów (baza PostgreSQL na home.pl)
 url: https://github.com/Leon1409/myWallet
