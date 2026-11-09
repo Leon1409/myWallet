@@ -41,7 +41,8 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          # Capacitor 8.x kompiluje @capacitor/android z source/target 21 — JDK 17 pada "invalid source release: 21"
+          java-version: 21
 
       # SDK Android jest preinstalowane na ubuntu-latest (ANDROID_HOME) — bez setup-android
 
