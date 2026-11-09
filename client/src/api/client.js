@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-export const api = axios.create({ baseURL: '/api' });
+// W przeglądarce (dev/prod) '/api' — Vite proxy albo ten sam origin co serwer.
+// W natywnej apce (Capacitor) nie ma serwera lokalnego — absolutny URL API
+// wstrzykiwany przez VITE_API_URL przy buildzie APK.
+export const API_URL = import.meta.env.VITE_API_URL || '/api';
+export const api = axios.create({ baseURL: API_URL });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');

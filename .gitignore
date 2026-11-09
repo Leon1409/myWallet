@@ -5,3 +5,10 @@ opencode.json
 *.log
 .DS_Store
 screeny dla agenta/
+# Android (Capacitor) — artefakty gradle
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.idea/
+android/capacitor-cordova-android-plugins/build/

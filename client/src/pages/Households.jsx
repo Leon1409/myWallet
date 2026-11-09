@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, errMsg } from '../api/client.js';
 import { useHouseholds } from '../context/HouseholdsContext.jsx';
-import { Modal, Field, Loading, Empty } from '../components/ui.jsx';
+import { Modal, Field, Loading, Empty, ConfirmDialog } from '../components/ui.jsx';
 import { formatDate } from '../utils/format.js';
 
 function InviteRow({ invite, busy, onAccept, onDecline }) {
@@ -36,6 +36,7 @@ function HouseholdCard({ hh, currentId, switchTo, onChanged, onGone }) {
   const [busy, setBusy] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameName, setRenameName] = useState('');
+  const [confirmBox, setConfirmBox] = useState(null);
   const isCurrent = currentId === String(hh.id);
 
   async function load() {
@@ -103,16 +104,22 @@ function HouseholdCard({ hh, currentId, switchTo, onChanged, onGone }) {
     }
   }
 
-  async function leave() {
-    if (!window.confirm('Opuścić budżet domowy? Przestaniesz widzieć jego dane.')) return;
-    setError('');
-    try {
-      await api.post(`/households/${hh.id}/leave`);
-      if (isCurrent) onGone();
-      else await onChanged();
-    } catch (err) {
-      setError(errMsg(err));
-    }
+  function leave() {
+    setConfirmBox({
+      title: 'Opuścić budżet domowy?',
+      message: 'Przestaniesz widzieć jego dane. Chcesz kontynuować?',
+      confirmLabel: 'Opuść',
+      onConfirm: async () => {
+        setError('');
+        try {
+          await api.post(`/households/${hh.id}/leave`);
+          if (isCurrent) onGone();
+          else await onChanged();
+        } catch (err) {
+          setError(errMsg(err));
+        }
+      },
+    });
   }
 
   // Ustaw/ściągnij domyślny budżet (per konto — działa na każdym urządzeniu po zalogowaniu)
@@ -136,21 +143,22 @@ function HouseholdCard({ hh, currentId, switchTo, onChanged, onGone }) {
     }
   }
 
-  async function remove() {
-    if (
-      !window.confirm(
-        `Usunąć budżet domowy „${hh.name}" wraz ze WSZYSTKIMI danymi (konta, transakcje, budżety)? Tej operacji nie można cofnąć.`
-      )
-    )
-      return;
-    setError('');
-    try {
-      await api.delete(`/households/${hh.id}`);
-      if (isCurrent) onGone();
-      else await onChanged();
-    } catch (err) {
-      setError(errMsg(err));
-    }
+  function remove() {
+    setConfirmBox({
+      title: `Usunąć budżet „${hh.name}”?`,
+      message: `Usunąć budżet domowy „${hh.name}" wraz ze WSZYSTKIMI danymi (transakcje, budżety, listy zakupów)? Tej operacji nie można cofnąć.`,
+      confirmLabel: 'Usuń budżet',
+      onConfirm: async () => {
+        setError('');
+        try {
+          await api.delete(`/households/${hh.id}`);
+          if (isCurrent) onGone();
+          else await onChanged();
+        } catch (err) {
+          setError(errMsg(err));
+        }
+      },
+    });
   }
 
   return (
@@ -318,6 +326,8 @@ function HouseholdCard({ hh, currentId, switchTo, onChanged, onGone }) {
           </div>
         </Modal>
       )}
+
+      {confirmBox && <ConfirmDialog {...confirmBox} onClose={() => setConfirmBox(null)} />}
     </div>
   );
 }

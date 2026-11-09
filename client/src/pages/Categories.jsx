@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, errMsg } from '../api/client.js';
 import { ICONS } from '../utils/format.js';
-import { Modal, Field, Loading, Empty } from '../components/ui.jsx';
+import { Modal, Field, Loading, Empty, ConfirmDialog } from '../components/ui.jsx';
 
 function CategoryModal({ title, initial, onClose, onSaved }) {
   const [form, setForm] = useState(initial);
@@ -93,6 +93,7 @@ export default function Categories() {
   const [items, setItems] = useState(null);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null);
+  const [confirmBox, setConfirmBox] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -108,14 +109,19 @@ export default function Categories() {
     load();
   }, [load]);
 
-  async function onDelete(c) {
-    if (!window.confirm(`Usunąć kategorię „${c.name}”?`)) return;
-    try {
-      await api.delete(`/categories/${c.id}`);
-      load();
-    } catch (err) {
-      window.alert(errMsg(err));
-    }
+  function onDelete(c) {
+    setConfirmBox({
+      title: 'Usunąć kategorię?',
+      message: `Usunąć kategorię „${c.name}"? Transakcje z nią powiązane zostaną bez kategorii.`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/categories/${c.id}`);
+          load();
+        } catch (err) {
+          setConfirmBox({ title: 'Błąd', message: errMsg(err) });
+        }
+      },
+    });
   }
 
   const groups = [
@@ -198,6 +204,7 @@ export default function Categories() {
           }}
         />
       )}
+      {confirmBox && <ConfirmDialog {...confirmBox} onClose={() => setConfirmBox(null)} />}
     </>
   );
 }

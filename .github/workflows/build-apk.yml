@@ -1,0 +1,61 @@
+# Buduje APK (debug, sideload — bez sklepu) z builda Vite opakowanego w
+# Capacitor. Uruchamia się przy zmianach apki/klienta + ręcznie (workflow_dispatch).
+# Wynik: artifact "mywallet-apk" do pobrania z podsumowania runa.
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "client/**"
+      - ".github/workflows/build-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      # Natywna apka nie ma serwera lokalnego — API przez tunel/domenę
+      - name: Build web (Vite, absolutny URL API)
+        run: |
+          npm ci
+          VITE_API_URL=https://wallet.lukleo.pl/api npm run build
+
+      - name: Sync Capacitor (skopiuj dist do projektu Android)
+        run: npx cap sync android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Assemble debug APK
+        working-directory: client/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Zmień nazwę APK
+        run: mv android/app/build/outputs/apk/debug/app-debug.apk MyWallet.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mywallet-apk
+          path: client/MyWallet.apk
+          retention-days: 90

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, errMsg } from '../api/client.js';
 import { formatPLN, formatDate, todayIso, FREQUENCY_LABELS } from '../utils/format.js';
-import { Modal, Field, Loading, Empty } from '../components/ui.jsx';
+import { Modal, Field, Loading, Empty, ConfirmDialog } from '../components/ui.jsx';
 
 function RecurringModal({ title, initial, categories, onClose, onSaved }) {
   const [form, setForm] = useState(initial);
@@ -119,6 +119,7 @@ export default function Recurring() {
   const [categories, setCategories] = useState([]);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null);
+  const [confirmBox, setConfirmBox] = useState(null);
 
   useEffect(() => {
     api.get('/categories').then((r) => setCategories(r.data.items)).catch(() => {});
@@ -143,18 +144,23 @@ export default function Recurring() {
       await api.patch(`/recurring/${r.id}`, { active });
       load();
     } catch (err) {
-      window.alert(errMsg(err));
+      setConfirmBox({ title: 'Błąd', message: errMsg(err) });
     }
   }
 
-  async function onDelete(r) {
-    if (!window.confirm(`Usunąć wpis cykliczny „${r.description}”?`)) return;
-    try {
-      await api.delete(`/recurring/${r.id}`);
-      load();
-    } catch (err) {
-      window.alert(errMsg(err));
-    }
+  function onDelete(r) {
+    setConfirmBox({
+      title: 'Usunąć wpis cykliczny?',
+      message: `Usunąć wpis cykliczny „${r.description}"? Przestanie generować transakcje.`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/recurring/${r.id}`);
+          load();
+        } catch (err) {
+          setConfirmBox({ title: 'Błąd', message: errMsg(err) });
+        }
+      },
+    });
   }
 
   return (
@@ -295,6 +301,7 @@ export default function Recurring() {
           }}
         />
       )}
+      {confirmBox && <ConfirmDialog {...confirmBox} onClose={() => setConfirmBox(null)} />}
     </>
   );
 }

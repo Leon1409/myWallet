@@ -21,6 +21,37 @@ export function Modal({ title, onClose, children }) {
   );
 }
 
+// Potwierdzenie/komunikat zamiast natywnych window.confirm/alert — te w PWA
+// (zainstalowana apka) wyglądają jak obcy systemowy popup z adresem strony.
+// onConfirm == null -> wariant "samo OK" (komunikat), inaczej Anuluj + akcja.
+export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onClose }) {
+  return (
+    <Modal title={title} onClose={onClose}>
+      <p style={{ color: 'var(--text)', fontSize: 14, margin: '0 0 16px', lineHeight: 1.55 }}>
+        {message}
+      </p>
+      <div className="form-actions">
+        {onConfirm ? (
+          <>
+            <button className="btn" onClick={onClose}>Anuluj</button>
+            <button
+              className="btn btn-danger"
+              onClick={() => {
+                onConfirm();
+                onClose();
+              }}
+            >
+              {confirmLabel || 'Usuń'}
+            </button>
+          </>
+        ) : (
+          <button className="btn btn-primary" onClick={onClose}>OK</button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 export function Field({ label, children }) {
   return (
     <div className="field">

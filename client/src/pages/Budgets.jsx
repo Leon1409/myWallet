@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, errMsg } from '../api/client.js';
 import { formatPLN, ymNow, ymLabel } from '../utils/format.js';
-import { MonthNav, ProgressBar, Loading, Empty } from '../components/ui.jsx';
+import { MonthNav, ProgressBar, Loading, Empty, ConfirmDialog } from '../components/ui.jsx';
 
 export default function Budgets() {
   const [ym, setYm] = useState(ymNow());
   const [data, setData] = useState(null);
+  const [confirmBox, setConfirmBox] = useState(null);
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -42,9 +43,16 @@ export default function Budgets() {
     }
   }
 
-  async function onRemove() {
+  function onRemove() {
     if (!data?.budget) return;
-    if (!window.confirm(`Usunąć limit wydatków na ${ymLabel(ym)}?`)) return;
+    setConfirmBox({
+      title: 'Usunąć limit wydatków?',
+      message: `Usunąć limit wydatków na ${ymLabel(ym)}?`,
+      onConfirm: reallyRemove,
+    });
+  }
+
+  async function reallyRemove() {
     setBusy(true);
     setError('');
     setMsg('');
@@ -182,6 +190,7 @@ export default function Budgets() {
           </div>
         )}
       </div>
+      {confirmBox && <ConfirmDialog {...confirmBox} onClose={() => setConfirmBox(null)} />}
     </>
   );
 }

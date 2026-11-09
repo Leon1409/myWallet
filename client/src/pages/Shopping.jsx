@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, errMsg } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useHouseholds } from '../context/HouseholdsContext.jsx';
-import { Modal, Field, Loading, Empty, ProgressBar } from '../components/ui.jsx';
+import { Modal, Field, Loading, Empty, ProgressBar, ConfirmDialog } from '../components/ui.jsx';
 import { formatDate } from '../utils/format.js';
 
 function ListModal({ title, initial, households, onClose, onSaved }) {
@@ -116,13 +116,14 @@ function ShoppingListCard({ list, onChanged, onEdit }) {
   const [busy, setBusy] = useState(false);
   const isDone = list.status === 'done';
   const bought = list.items.filter((i) => i.bought).length;
+  const [confirmBox, setConfirmBox] = useState(null);
 
   async function op(fn) {
     setBusy(true);
     try {
       await fn();
     } catch (err) {
-      window.alert(errMsg(err));
+      setConfirmBox({ title: 'Błąd', message: errMsg(err) });
     } finally {
       setBusy(false);
       onChanged();
@@ -248,15 +249,19 @@ function ShoppingListCard({ list, onChanged, onEdit }) {
           <button
             className="btn btn-sm btn-danger"
             disabled={busy}
-            onClick={() => {
-              if (!window.confirm(`Usunąć listę „${list.title}" wraz z pozycjami?`)) return;
-              op(() => api.delete(`/shopping-lists/${list.id}`));
-            }}
+            onClick={() =>
+              setConfirmBox({
+                title: 'Usunąć listę?',
+                message: `Usunąć listę „${list.title}" wraz z pozycjami?`,
+                onConfirm: () => op(() => api.delete(`/shopping-lists/${list.id}`)),
+              })
+            }
           >
             🗑 Usuń
           </button>
         </div>
       </div>
+      {confirmBox && <ConfirmDialog {...confirmBox} onClose={() => setConfirmBox(null)} />}
     </div>
   );
 }

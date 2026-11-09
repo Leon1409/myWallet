@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, errMsg, downloadCsv } from '../api/client.js';
 import { formatPLN, formatDate, todayIso, ymNow, ymRange } from '../utils/format.js';
-import { Modal, Field, Loading, Empty, MonthNav } from '../components/ui.jsx';
+import { Modal, Field, Loading, Empty, MonthNav, ConfirmDialog } from '../components/ui.jsx';
 
 const LIMIT = 25;
 
@@ -351,7 +351,8 @@ export default function Transactions() {
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null); // { title, initial }
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [previewTx, setPreviewTx] = useState(null);
+  const [previewTx, setPreviewTx] = useState(null); // transakcja z paragonem
+  const [confirmBox, setConfirmBox] = useState(null);
 
   useEffect(() => {
     api.get('/categories').then((r) => setCategories(r.data.items)).catch(() => {});
@@ -381,15 +382,20 @@ export default function Transactions() {
     load();
   }, [load]);
 
-  async function onDelete(t) {
-    const msg = `Usunąć transakcję ${t.description || t.category_name || ''} na ${formatPLN(t.amount)}?`;
-    if (!window.confirm(msg)) return;
-    try {
-      await api.delete(`/transactions/${t.id}`);
-      load();
-    } catch (err) {
-      window.alert(errMsg(err));
-    }
+  function onDelete(t) {
+    const desc = t.description || t.category_name || '';
+    setConfirmBox({
+      title: 'Usunąć transakcję?',
+      message: `Usunąć transakcję ${desc} na ${formatPLN(t.amount)}?`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/transactions/${t.id}`);
+          load();
+        } catch (err) {
+          setConfirmBox({ title: 'Błąd', message: errMsg(err) });
+        }
+      },
+    });
   }
 
   async function onExport() {
@@ -401,7 +407,7 @@ export default function Transactions() {
     try {
       await downloadCsv(`/transactions/export?${qs}`, `transakcje_${ym}.csv`);
     } catch (err) {
-      window.alert(errMsg(err));
+      setConfirmBox({ title: 'Błąd eksportu', message: errMsg(err) });
     }
   }
 
@@ -594,6 +600,8 @@ export default function Transactions() {
       )}
 
       {previewTx && <ReceiptPreviewModal tx={previewTx} onClose={() => setPreviewTx(null)} />}
+
+      {confirmBox && <ConfirmDialog {...confirmBox} onClose={() => setConfirmBox(null)} />}
     </>
   );
 }

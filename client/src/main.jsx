@@ -19,7 +19,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 );
 
 // PWA — rejestracja service workera (tylko secure context: https/localhost;
-// na LAN po http się nie odpali i nie szkodzi)
-if ('serviceWorker' in navigator) {
+// na LAN po http się nie odpali i nie szkodzi). W natywnej apce (Capacitor)
+// nie rejestrujemy — assety i tak są lokalne w APK.
+if ('serviceWorker' in navigator && !window.Capacitor) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
