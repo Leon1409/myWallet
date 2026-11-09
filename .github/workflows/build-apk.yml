@@ -43,7 +43,7 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
+      # SDK Android jest preinstalowane na ubuntu-latest (ANDROID_HOME) — bez setup-android
 
       - name: Assemble debug APK
         working-directory: client/android
